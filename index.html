@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loader with Crossfade</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: black; overflow: hidden; }
+        
+        canvas { width: 100vw; height: 100vh; }
+
+        .frame-rate-input {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+        }
+
+        #rocket {
+            display: none;
+            position: absolute;
+            width: 50%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body>
+    <input type="number" id="frameRateInput" class="frame-rate-input" value="1.2" min="0.5" max="60" step="0.1" />
+    <canvas id="animationCanvas"></canvas>
+    <img id="rocket" src="./assets/rocket.png" alt="Rocket">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.7/gsap.min.js"></script>
+    <script>
+        const canvas = document.getElementById("animationCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const totalFrames = 13;
+        let currentIndex = 0;
+        let frameRate = 1000 / 1.2;
+        let images = [];
+        let rocket = document.getElementById("rocket");
+        let fadeProgress = 0;
+        let animationId;
+        let transitionDuration = 0.35;
+        let animationComplete = false;
+
+        let loadedCount = 0;
+        for (let i = 1; i <= totalFrames; i++) {
+            const img = new Image();
+            img.src = `./assets/${i}.svg`;
+            img.onload = () => {
+                loadedCount++;
+                if (loadedCount === totalFrames) {
+                    startAnimation();
+                }
+            };
+            images.push(img);
+        }
+
+        function startAnimation() {
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function animate(timestamp) {
+            if (animationComplete) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(images[12], 0, 0, canvas.width, canvas.height);
+                return;
+            }
+
+            if (!animate.lastTime) {
+                animate.lastTime = timestamp;
+                animate.elapsedTime = 0;
+            }
+
+            const deltaTime = timestamp - animate.lastTime;
+            animate.lastTime = timestamp;
+            animate.elapsedTime += deltaTime;
+
+            fadeProgress = (animate.elapsedTime % frameRate) / (transitionDuration * 1000);
+            fadeProgress = Math.min(fadeProgress, 1);
+
+            if (animate.elapsedTime >= frameRate) {
+                animate.elapsedTime = 0;
+                currentIndex++;
+
+                if (currentIndex >= 11) {
+                    animationComplete = true;
+                    currentIndex = 11;
+                    showRocket();
+                    
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(images[12], 0, 0, canvas.width, canvas.height);
+                    
+                    animationId = requestAnimationFrame(animate);
+                    return;
+                }
+            }
+
+            drawCrossfade();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function drawCrossfade() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let currentImg = images[currentIndex];
+            
+            if (!animationComplete && currentIndex < 12) {
+                let nextIndex = (currentIndex + 1) % totalFrames;
+                let nextImg = images[nextIndex];
+                
+                ctx.globalAlpha = 1.0;
+                ctx.drawImage(currentImg, 0, 0, canvas.width, canvas.height);
+                
+                ctx.globalAlpha = fadeProgress;
+                ctx.drawImage(nextImg, 0, 0, canvas.width, canvas.height);
+                
+                ctx.globalAlpha = 1.0;
+            } else {
+                ctx.drawImage(currentImg, 0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function showRocket() {
+            gsap.set(rocket, { display: "block" });
+            gsap.to(rocket, {
+                top: "10px",
+                width: "5%",
+                duration: 0.6,
+                ease: "power2.in",
+                onComplete: function(){
+                    rocket.style.display = "none";
+                }
+            });
+        }
+
+        document.getElementById("frameRateInput").addEventListener("input", (event) => {
+            let newFPS = parseFloat(event.target.value);
+            if (newFPS > 0 && newFPS <= 60) {
+                frameRate = 1000 / newFPS;
+                
+                if (animate.lastTime) {
+                    animate.elapsedTime = 0;
+                }
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
